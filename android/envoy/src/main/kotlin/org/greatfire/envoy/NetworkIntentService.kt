@@ -37,6 +37,15 @@ const val EXTENDED_DATA_INVALID_URLS = "org.greatfire.envoy.INVALID_URLS"
 
 const val PREF_VALID_URLS = "validUrls"
 
+// Geneva evasion strategies
+const val EXTRA_PARAM_STRATEGY = "org.greatfire.envoy.extra.PARAM_STRATEGY"
+const val UNMODIFIED_STRATEGY = 0
+const val ELEVATED_COUNT_STRATEGY = 1
+const val TRUNCATED_RESERVED_STRATEGY = 2
+const val MULTI_BYTE_STRATEGY = 3
+const val MULTI_BYTE_ELEVATED_COUNT_STRATEGY = 4
+const val COMPRESSED_STRATEGY = 5
+
 /**
  * An [IntentService] subclass for handling asynchronous task requests in
  * a service on a separate handler thread.
@@ -73,7 +82,12 @@ class NetworkIntentService : IntentService("NetworkIntentService") {
         when (intent?.action) {
             ACTION_SUBMIT -> {
                 val urls = intent.getStringArrayListExtra(EXTRA_PARAM_SUBMIT)
-                handleActionSubmit(urls)
+                var strategy = intent.getIntExtra(EXTRA_PARAM_STRATEGY, UNMODIFIED_STRATEGY)
+                // TODO: is there a better way to express this min/max?
+                if (strategy < UNMODIFIED_STRATEGY || strategy > COMPRESSED_STRATEGY) {
+                    strategy = UNMODIFIED_STRATEGY
+                }
+                handleActionSubmit(urls, strategy)
             }
             ACTION_QUERY -> {
                 handleActionQuery()
@@ -109,12 +123,16 @@ class NetworkIntentService : IntentService("NetworkIntentService") {
      * parameters.
      */
     private fun handleActionSubmit(urls: List<String>?,
+                                   strategy: Int,
                                    captive_portal_url: String = "https://www.google.com/generate_204") {
         val executor: Executor = Executors.newSingleThreadExecutor()
         urls?.forEachIndexed { index, envoyUrl ->
             val myBuilder = CronetEngine.Builder(applicationContext)
+            // added new parameter for geneva strategies
+            Log.d("GENEVA", "TEST URL " + envoyUrl + " WITH STRATEGY " + strategy)
             val cronetEngine: CronetEngine = myBuilder
                     .setEnvoyUrl(envoyUrl)
+                    .SetStrategy(strategy)
                     .setUserAgent(DEFAULT_USER_AGENT).build()
 
             val requestBuilder = cronetEngine.newUrlRequestBuilder(
@@ -152,10 +170,11 @@ class NetworkIntentService : IntentService("NetworkIntentService") {
          * @see IntentService
          */
         @JvmStatic
-        fun submit(context: Context, urls: List<String>) {
+        fun submit(context: Context, urls: List<String>, strategy: Int) {
             val intent = Intent(context, NetworkIntentService::class.java).apply {
                 action = ACTION_SUBMIT
                 putStringArrayListExtra(EXTRA_PARAM_SUBMIT, ArrayList<String>(urls))
+                putExtra(EXTRA_PARAM_STRATEGY, strategy)
             }
             context.startService(intent)
         }

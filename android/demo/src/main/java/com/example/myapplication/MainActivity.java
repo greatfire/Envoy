@@ -46,6 +46,7 @@ import java.util.List;
 
 import static org.greatfire.envoy.NetworkIntentServiceKt.BROADCAST_URL_VALIDATION_SUCCEEDED;
 import static org.greatfire.envoy.NetworkIntentServiceKt.EXTENDED_DATA_VALID_URLS;
+import static org.greatfire.envoy.NetworkIntentServiceKt.UNMODIFIED_STRATEGY;
 
 public class MainActivity extends FragmentActivity {
 
@@ -93,7 +94,7 @@ public class MainActivity extends FragmentActivity {
         String envoyUrl = "socks5://127.0.0.1:1080"; // Keep this if no port conflicts
 
         List<String> envoyUrls = Collections.unmodifiableList(Arrays.asList(envoyUrl, "https://allowed.example.com/path/"));
-        NetworkIntentService.submit(this, envoyUrls);
+        NetworkIntentService.submit(this, envoyUrls, UNMODIFIED_STRATEGY);
         // we will get responses in NetworkIntentServiceReceiver's onReceive
 
         // NetworkIntentService.enqueueQuery(this); // async
