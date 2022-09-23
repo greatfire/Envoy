@@ -34,6 +34,10 @@ const val BROADCAST_URL_VALIDATION_FAILED = "org.greatfire.envoy.VALIDATION_FAIL
 // Defines the key for the status "extra" in an Intent
 const val EXTENDED_DATA_VALID_URLS = "org.greatfire.envoy.VALID_URLS"
 const val EXTENDED_DATA_INVALID_URLS = "org.greatfire.envoy.INVALID_URLS"
+const val EXTENDED_DATA_VALID_URL = "org.greatfire.envoy.VALID_URL"
+const val EXTENDED_DATA_INVALID_URL = "org.greatfire.envoy.INVALID_URL"
+const val EXTENDED_DATA_VALID_STRATEGY = "org.greatfire.envoy.VALID_STRATEGY"
+const val EXTENDED_DATA_INVALID_STRATEGY = "org.greatfire.envoy.INVALID_STRATEGY"
 
 const val PREF_VALID_URLS = "validUrls"
 
@@ -129,21 +133,42 @@ class NetworkIntentService : IntentService("NetworkIntentService") {
         urls?.forEachIndexed { index, envoyUrl ->
             val myBuilder = CronetEngine.Builder(applicationContext)
             // added new parameter for geneva strategies
-            Log.d("GENEVA", "TEST URL " + envoyUrl + " WITH STRATEGY " + strategy)
-            val cronetEngine: CronetEngine = myBuilder
+            // TEMP: TEST FIRST URL WITH ALL STRATEGIES
+            if (index == 0) {
+                for (i in 0..5) {
+                    Log.d("GENEVA", "TEST URL " + envoyUrl + " WITH STRATEGY " + i)
+                    val cronetEngine: CronetEngine = myBuilder
+                        .setEnvoyUrl(envoyUrl)
+                        .SetStrategy(i)
+                        .setUserAgent(DEFAULT_USER_AGENT).build()
+
+                    val requestBuilder = cronetEngine.newUrlRequestBuilder(
+                        captive_portal_url,
+                        MyUrlRequestCallback(envoyUrl, i),
+                        executor
+                    )
+
+                    val request: UrlRequest = requestBuilder.build()
+                    request.start()
+                    Log.d(TAG, "enqueue url $envoyUrl at index $index to test $captive_portal_url")
+                }
+            } else {
+                Log.d("GENEVA", "TEST URL " + envoyUrl + " WITH STRATEGY " + strategy)
+                val cronetEngine: CronetEngine = myBuilder
                     .setEnvoyUrl(envoyUrl)
                     .SetStrategy(strategy)
                     .setUserAgent(DEFAULT_USER_AGENT).build()
 
-            val requestBuilder = cronetEngine.newUrlRequestBuilder(
+                val requestBuilder = cronetEngine.newUrlRequestBuilder(
                     captive_portal_url,
-                    MyUrlRequestCallback(envoyUrl),
+                    MyUrlRequestCallback(envoyUrl, strategy),
                     executor
-            )
+                )
 
-            val request: UrlRequest = requestBuilder.build()
-            request.start()
-            Log.d(TAG, "enqueue url $envoyUrl at index $index to test $captive_portal_url")
+                val request: UrlRequest = requestBuilder.build()
+                request.start()
+                Log.d(TAG, "enqueue url $envoyUrl at index $index to test $captive_portal_url")
+            }
         }
     }
 
@@ -194,7 +219,7 @@ class NetworkIntentService : IntentService("NetworkIntentService") {
         }
     }
 
-    inner class MyUrlRequestCallback(private val envoyUrl: String) : UrlRequest.Callback() {
+    inner class MyUrlRequestCallback(private val envoyUrl: String, private val envoyStrategy: Int) : UrlRequest.Callback() {
 
         override fun onRedirectReceived(
                 request: UrlRequest?,
@@ -230,7 +255,7 @@ class NetworkIntentService : IntentService("NetworkIntentService") {
                 // only a 200 status code is valid, otherwise return invalid url as in onFailed
                 if (info?.httpStatusCode in 200..299) {
                     // logs captive portal url used to validate envoy url
-                    Log.i(TAG, "onSucceeded method called for " + info?.url + " -> got " + info?.httpStatusCode + " response code so tested url is valid")
+                    Log.i(TAG, "onSucceeded method called for " + info?.url + " / " + envoyStrategy + " -> got " + info?.httpStatusCode + " response code so tested url is valid")
                     this@NetworkIntentService.validUrls.add(envoyUrl)
 
                     // store valid urls in preferences
@@ -244,16 +269,20 @@ class NetworkIntentService : IntentService("NetworkIntentService") {
                     val localIntent = Intent(BROADCAST_URL_VALIDATION_SUCCEEDED).apply {
                         // puts the validation status into the intent
                         putStringArrayListExtra(EXTENDED_DATA_VALID_URLS, ArrayList(validUrls))
+                        putExtra(EXTENDED_DATA_VALID_URL, envoyUrl)
+                        putExtra(EXTENDED_DATA_VALID_STRATEGY, envoyStrategy)
                     }
                     LocalBroadcastManager.getInstance(this@NetworkIntentService).sendBroadcast(localIntent)
                 } else {
                     // logs captive portal url used to validate envoy url
-                    Log.e(TAG, "onSucceeded method called for " + info?.url + " -> got " + info?.httpStatusCode + " response code so tested url is invalid")
+                    Log.e(TAG, "onSucceeded method called for " + info?.url + " / " + envoyStrategy + " -> got " + info?.httpStatusCode + " response code so tested url is invalid")
                     this@NetworkIntentService.invalidUrls.add(envoyUrl)
 
                     val localIntent = Intent(BROADCAST_URL_VALIDATION_FAILED).apply {
                         // puts the validation status into the intent
                         putStringArrayListExtra(EXTENDED_DATA_INVALID_URLS, ArrayList(invalidUrls))
+                        putExtra(EXTENDED_DATA_INVALID_URL, envoyUrl)
+                        putExtra(EXTENDED_DATA_INVALID_STRATEGY, envoyStrategy)
                     }
                     LocalBroadcastManager.getInstance(this@NetworkIntentService).sendBroadcast(localIntent)
                 }
@@ -268,12 +297,14 @@ class NetworkIntentService : IntentService("NetworkIntentService") {
                 error: CronetException?
         ) {
             // logs captive portal url used to validate envoy url
-            Log.e(TAG, "onFailed method called for " + info?.url + " -> " + error?.message)
+            Log.e(TAG, "onFailed method called for " + info?.url + " / " + envoyStrategy + " -> " + error?.message)
             // broadcast intent with invalid urls so application can handle errors
             this@NetworkIntentService.invalidUrls.add(envoyUrl)
             val localIntent = Intent(BROADCAST_URL_VALIDATION_FAILED).apply {
                 // puts the validation status into the intent
                 putStringArrayListExtra(EXTENDED_DATA_INVALID_URLS, ArrayList(invalidUrls))
+                putExtra(EXTENDED_DATA_INVALID_URL, envoyUrl)
+                putExtra(EXTENDED_DATA_INVALID_STRATEGY, envoyStrategy)
             }
             LocalBroadcastManager.getInstance(this@NetworkIntentService).sendBroadcast(localIntent)
         }
