@@ -3,7 +3,10 @@
 buildscript {
     repositories {
         google()
-	mavenCentral()
+        mavenCentral()
+        flatDir {
+            dirs 'cronet' // use .aar in cronet folder as repo to avoid new gradle error
+        }
     }
     dependencies {
         classpath 'com.android.tools.build:gradle:4.2.0'
