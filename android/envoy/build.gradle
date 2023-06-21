@@ -3,8 +3,7 @@ apply plugin: 'kotlin-android'
 
 android {
     compileSdkVersion 29
-    buildToolsVersion '30.0.2'
-    //ndkVersion '20.0.5594570'
+    buildToolsVersion '30.0.3'
     ndkVersion '21.0.6113669'
 
     defaultConfig {
@@ -37,17 +36,12 @@ android {
 }
 
 dependencies {
-    // implementation fileTree(dir: 'libs', include: ['*.jar'])
-    // implementation 'androidx.appcompat:appcompat:1.1.0'
     //testImplementation 'junit:junit:4.12'
     //androidTestImplementation 'androidx.test:runner:1.1.1'
     //androidTestImplementation 'androidx.test.espresso:espresso-core:3.1.1'
 
     implementation('com.squareup.okhttp3:okhttp:4.6.0')
     implementation('com.squareup.okhttp3:okhttp-urlconnection:4.4.1')
-    //noinspection GradleDependency
-    //implementation('com.squareup.okhttp3:okhttp:3.14.8')
-    //implementation('com.squareup.okhttp3:okhttp-urlconnection:3.14.8')
 
     implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.4.32'
     implementation 'androidx.core:core-ktx:1.3.2'
@@ -56,6 +50,7 @@ dependencies {
     implementation 'org.greatfire.envoy:cronet:107.0.5304.150-1'
     implementation 'org.greatfire:IEnvoyProxy:1.4.2'
 
+    // To use local AARs
     // debugApi(name: 'cronet-debug', ext: 'aar')
     // releaseApi(name: 'cronet-release', ext: 'aar')
     // debugApi(name: 'IEnvoyProxy', ext: 'aar')
