@@ -80,6 +80,7 @@ class NetworkIntentService : IntentService("NetworkIntentService") {
     private var hysteriaUrls = Collections.synchronizedList(mutableListOf<String>())
     private var shadowsocksUrls = Collections.synchronizedList(mutableListOf<String>())
     private var snowflakeUrls = Collections.synchronizedList(mutableListOf<String>())
+    private var obfs4Urls = Collections.synchronizedList(mutableListOf<String>())
     private var httpsUrls = Collections.synchronizedList(mutableListOf<String>())
     private var additionalUrls = Collections.synchronizedList(mutableListOf<String>())
 
@@ -97,7 +98,7 @@ class NetworkIntentService : IntentService("NetworkIntentService") {
     private val cronetMap = Collections.synchronizedMap(mutableMapOf<String, CronetEngine>())
 
     private val httpPrefixes = Collections.synchronizedList(mutableListOf<String>("https", "http", "envoy"))
-    private val supportedPrefixes = Collections.synchronizedList(mutableListOf<String>("v2ws", "v2srtp", "v2wechat", "hysteria", "ss"))
+    private val supportedPrefixes = Collections.synchronizedList(mutableListOf<String>("v2ws", "v2srtp", "v2wechat", "hysteria", "ss", "obfs4"))
     private val preferredPrefixes = Collections.synchronizedList(mutableListOf<String>("snowflake"))
 
     fun checkValidationTime(): Boolean {
@@ -419,6 +420,9 @@ class NetworkIntentService : IntentService("NetworkIntentService") {
             } else if (envoyUrl.startsWith("snowflake://")) {
                 Log.d(TAG, "found snowflake url: " + UrlUtil.sanitizeUrl(envoyUrl, ENVOY_SERVICE_SNOWFLAKE));
                 handleSnowflakeSubmit(envoyUrl, captive_portal_url, hysteriaCert);
+            } else if (envoyUrl.startsWith("obfs4://")) {
+                Log.w(TAG, "found obfs4 url: " + UrlUtil.sanitizeUrl(envoyUrl, ENVOY_SERVICE_OBFS4));
+                handleObfs4Submit(envoyUrl, captive_portal_url, hysteriaCert);
             } else if (envoyUrl.startsWith("http")) {
                 Log.d(TAG, "found http url: " + UrlUtil.sanitizeUrl(envoyUrl, ENVOY_SERVICE_HTTPS))
                 handleHttpsSubmit(envoyUrl, captive_portal_url, hysteriaCert)
@@ -679,6 +683,9 @@ class NetworkIntentService : IntentService("NetworkIntentService") {
         hysteriaCert: String?
     ) {
 
+        // TEMP
+        Log.w(TAG, "SNOWFLAKE URL SUBMITTED: " + url)
+
         // borrowed from the list Tor Browser uses: https://gitlab.torproject.org/tpo/applications/tor-browser-build/-/merge_requests/617/diffs
         // too many is a problem, both of these seem to work for us
         var ice = "stun:stun.l.google.com:19302,stun:stun.sonetel.com:3478,stun:stun.voipgate.com:3478"
@@ -728,7 +735,8 @@ class NetworkIntentService : IntentService("NetworkIntentService") {
                 unsafeLogging, maxPeers)
             val urlString = TUNNEL_URL_BASE_1 + tunnelUrl + TUNNEL_URL_BASE_2 + snowflakePort
 
-            Log.d(TAG, "snowflake service started at " + urlString)
+            // TEMP
+            Log.w(TAG, "ENVOY URL FOR SNOWFLAKE SERVICE: " + urlString)
 
             snowflakeUrls.add(urlString)
 
@@ -742,6 +750,96 @@ class NetworkIntentService : IntentService("NetworkIntentService") {
                     url,
                     urlString,
                     ENVOY_SERVICE_SNOWFLAKE,
+                    captive_portal_url,
+                    hysteriaCert
+                )
+            }
+        }
+    }
+
+    private fun handleObfs4Submit(
+        url: String,
+        captive_portal_url: String,
+        hysteriaCert: String?
+    ) {
+
+        // TEMP
+        Log.w(TAG, "OBFS4 URL SUBMITTED: " + url)
+
+        val uri = URI(url)
+        var serviceIp = ""
+        var servicePort = ""
+        var auth = ""
+        var tunnelUrl1 = ""
+        var tunnelUrl2 = ""
+        val rawQuery = uri.rawQuery
+        val queries = rawQuery.split("&")
+        for (i in 0 until queries.size) {
+            val queryParts = queries[i].split("=")
+            if (queryParts[0].equals("ip")) {
+                // nothing to decode?
+                serviceIp = URLDecoder.decode(queryParts[1], "UTF-8")
+            } else if (queryParts[0].equals("port")) {
+                // nothing to decode?
+                servicePort = URLDecoder.decode(queryParts[1], "UTF-8")
+            } else if (queryParts[0].equals("auth")) {
+                // decode to pass as argument to ienvoyproxy
+                auth = URLDecoder.decode(queryParts[1], "UTF-8")
+            } else if (queryParts[0].equals("tunnel")) {
+                // this is purposfully not decocded to add to an Envoy URL
+                // val tunnelparts = queryParts[1].split("/")
+                val tunnelparts = queryParts[1].split("%2F")
+                if (tunnelparts.size >= 4) {
+                    // tunnelUrl1 = tunnelparts[0] + "//" + tunnelparts[2] + ":"
+                    // tunnelUrl2 = "/" + tunnelparts[3] + "/"
+                    tunnelUrl1 = tunnelparts[0] + "%2F%2F" + tunnelparts[2] + "%3A"
+                    tunnelUrl2 = "%2F" + tunnelparts[3] + "%2F"
+                } else {
+                    Log.w(TAG, "not enough parts found in tunnel url: " + queryParts[1])
+                }
+            }
+        }
+
+        // make the last 3 params: "DEBUG", true, true
+        val logLevel = "DEBUG"
+        val enableLogging = true
+        val unsafeLogging = true
+
+        // TEMP
+        Log.w(TAG, serviceIp + " / " + servicePort + " / " + auth + " / " + tunnelUrl1 + " / " + tunnelUrl2)
+
+        // start obfs4 service (lyrebird)
+        if (serviceIp.isNullOrEmpty() || servicePort.isNullOrEmpty() || auth.isNullOrEmpty() || tunnelUrl1.isNullOrEmpty() || tunnelUrl2.isNullOrEmpty()) {
+            Log.e(TAG, "some arguments required for obfs4 service are missing")
+        } else {
+
+            val nullCharString1 = "" + Char.MIN_VALUE
+            val nullCharString2 = "\\x00"
+            val nullCharString3 = "\u0000"
+            Log.w(TAG, "null character? <" + nullCharString1 + "> or <" + nullCharString2 + "> or <" + nullCharString3 + ">")
+
+            val obfs4Port = IEnvoyProxy.startLyrebird(auth, nullCharString1, logLevel, enableLogging, unsafeLogging)
+
+            val URL_PART_1 = "envoy://?url="
+            val URL_PART_2 = "&address="
+            val URL_PART_3 = "&socks5=socks5%3A%2F%2F127.0.0.1%3A" // "&socks5=socks5://localhost:"
+
+            val urlString = URL_PART_1 + tunnelUrl1 + servicePort + tunnelUrl2 + URL_PART_2 + serviceIp + URL_PART_3 + obfs4Port
+
+            Log.w(TAG, "ENVOY URL FOR OBFS4 SERVICE  " + urlString)
+
+            obfs4Urls.add(urlString)
+
+            // method returns port immediately but service is not ready immediately
+            Log.w(TAG, "submit url after a short delay for starting lyrebird")
+            ioScope.launch() {
+                Log.w(TAG, "start lyrebird delay")
+                delay(1)
+                Log.w(TAG, "end lyrebird delay")
+                handleRequest(
+                    url,
+                    urlString,
+                    ENVOY_SERVICE_OBFS4,
                     captive_portal_url,
                     hysteriaCert
                 )
@@ -901,6 +999,15 @@ class NetworkIntentService : IntentService("NetworkIntentService") {
                 IEnvoyProxy.stopSnowflake()
             } else {
                 Log.d(TAG, "" + snowflakeUrls.size + " snowflake urls remaining, service in use")
+            }
+        } else if (obfs4Urls.contains(envoyUrl)) {
+            obfs4Urls.remove(envoyUrl)
+            if (obfs4Urls.isEmpty()) {
+                // TEMP
+                Log.w(TAG, "no obfs4Urls urls remaining, (don't) stop service")
+                // IEnvoyProxy.stopLyrebird()
+            } else {
+                Log.w(TAG, "" + obfs4Urls.size + " obfs4Urls urls remaining, service in use")
             }
         } else {
             Log.d(TAG, "url was not previously cached")

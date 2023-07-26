@@ -91,6 +91,9 @@ class UrlUtil {
                             )
                         }
                     }
+                } else if (service.equals(ENVOY_SERVICE_SNOWFLAKE)) {
+                    // TEMP
+                    sanitizedString = url
                 } else {
                     // handles v2ray/hysteria/ss and unknown services
                     // if possible, extract prefix and port from url
