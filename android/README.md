@@ -26,7 +26,7 @@ CronetNetworking.initializeCronetEngine(getApplicationContext(), "YOUR-ENVOY-URL
 
 Envoy uses a nonstandard HTTP/HTTPS proxy where the origial request is passed in a header. Unencrypted HTTP is supported, but not recommeded. Cronet currently does not support proxying over QUIC / HTTP/3, so HTTP 1.1 or 2 is required. Server side setup is documented [here](../native/README.md) and a working example can be found [here](https://gitlab.com/stevenmcdonald/envoy-proxy-examples/-/tree/main/http_proxy).
 
-The URL can be specified simplly with the `http://` or `https://` protocol, e.g. `https://wiki.example.com/path/`, or the `envoy://` protocol can be used for more advanced features. The envoy protocol supports these paramters:
+The URL can be specified simply with the `http://` or `https://` protocol, e.g. `https://wiki.example.com/path/`, or the `envoy://` protocol can be used for more advanced features. The envoy protocol supports these paramters:
 
 * url: proxy URL, for example, https://allowed.example.com/path/
 * header_xxx: HTTP header, header_Host=my-host` will send Host header with value my-host

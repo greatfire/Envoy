@@ -1,10 +1,10 @@
 # Guides for security hardening
 
 ## Restrict upstream host
-Currently, we use dynamic `proxy_pass`, which gets its value from `Url-Orig` header.
+Currently, we use dynamic `proxy_pass`, which gets its value from the `Url-Orig` header.
 If an attacker makes forged requests to controlled servers, then the origin server's IP is leaked.
 
-Two way to deal with this:
+Two ways to deal with this:
 1. Extract path from `Url-Orig`, then append it to a static upstream host.
 2. Make sure upstream hosts are whitelisted, see below.
 

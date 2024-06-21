@@ -30,24 +30,24 @@ object CronetNetworking {
     private const val TAG = "Envoy"
 
     fun buildEngine(
-            context: Context,
-            cacheFolder: String? = null,
-            envoyUrl: String? = null,
-            strategy: Int = 0,
-            cacheSize: Long = 0
+        context: Context,
+        cacheFolder: String? = null,
+        envoyUrl: String? = null,
+        strategy: Int = 0,
+        cacheSize: Long = 0
     ): CronetEngine {
         var builder = CronetEngine.Builder(context)
-                .enableBrotli(true)
-                .enableHttp2(true)
-                .enableQuic(true)
+            .enableBrotli(true)
+            .enableHttp2(true)
+            .enableQuic(true)
         if (!cacheFolder.isNullOrEmpty() && cacheSize > 0) {
             val cacheDir = File(context.cacheDir, cacheFolder)
             if (!cacheDir.exists()) {
                 cacheDir.mkdirs()
             }
             builder = builder
-                    .setStoragePath(cacheDir.absolutePath)
-                    .enableHttpCache(CronetEngine.Builder.HTTP_CACHE_DISK, cacheSize * 1024 * 1024)
+                .setStoragePath(cacheDir.absolutePath)
+                .enableHttpCache(CronetEngine.Builder.HTTP_CACHE_DISK, cacheSize * 1024 * 1024)
         }
         if (!envoyUrl.isNullOrEmpty()) {
             Log.d(TAG, "building cronet engine with url $envoyUrl")
@@ -86,11 +86,11 @@ object CronetNetworking {
             mCronetEngine = mCustomCronetBuilder!!.build(context)
         } else {
             mCronetEngine = buildEngine(
-                    context = context,
-                    cacheFolder = "cronet-cache",
-                    envoyUrl = envoyUrl,
-                    strategy = strategy,
-                    cacheSize = 10
+                context = context,
+                cacheFolder = "cronet-cache",
+                envoyUrl = envoyUrl,
+                strategy = strategy,
+                cacheSize = 10
             )
             if (mCronetEngine != null) {
                 Log.d(TAG, "engine version " + mCronetEngine!!.versionString)

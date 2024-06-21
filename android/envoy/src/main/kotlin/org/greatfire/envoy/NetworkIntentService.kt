@@ -907,11 +907,11 @@ class NetworkIntentService : IntentService("NetworkIntentService") {
             try {
                 val executor: Executor = Executors.newSingleThreadExecutor()
                 val cronetEngine: CronetEngine = CronetNetworking.buildEngine(
-                        context = applicationContext,
-                        cacheFolder = cacheMap.get(originalUrl),
-                        envoyUrl = envoyUrl,
-                        strategy = strategy,
-                        cacheSize = 1
+                    context = applicationContext,
+                    cacheFolder = cacheMap.get(originalUrl),
+                    envoyUrl = envoyUrl,
+                    strategy = strategy,
+                    cacheSize = 1
                 )
                 val requestBuilder = cronetEngine.newUrlRequestBuilder(
                     captive_portal_url,

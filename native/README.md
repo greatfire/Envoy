@@ -18,7 +18,7 @@ or `cronetEngineBuilder.setEnvoyUrl("ENVOY_URL")` for android.
 
 In one format of
 
-- `https://DOMAIN/PATH` which can be backed up by http servrs or even CDN. The full format for this mode is `envoy://?k1=v1&k2=v2`, see Parameters section below for more.
+- `https://DOMAIN/PATH` which can be backed up by http servers or even CDN. The full format for this mode is `envoy://?k1=v1&k2=v2`, see Parameters section below for more.
 - `socks5://HOST:PORT` which can be any socks5 proxy, and we have a built-in shadowsocks service for the android platform.
 
 ### Parameters

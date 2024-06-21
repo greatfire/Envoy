@@ -1,8 +1,8 @@
 C and Java Library derived from chromium [cronet](https://chromium.googlesource.com/chromium/src/+/master/components/cronet/). Envoy can be easily added to existing Android apps using OkHttp, Volley, WebView, Cronet basic or java.net.HttpURLConnection to add censorship evasion features.
 
-We are looking for developers to improve envoy together, please contact support@greatfire.org.
+We are looking for developers to improve Envoy together, please contact support@greatfire.org.
 
-我们正在寻找开发者一同改进envoy，详情联系support@greatfire.org。
+我们正在寻找开发者一同改进Envoy，详情联系support@greatfire.org。
 
 Technical details are explained [here](native/README.md).
 
@@ -29,7 +29,7 @@ See [this repo](https://gitlab.com/stevenmcdonald/envoy-proxy-examples/) for wor
 
 # ENVOY Developer Guide
 
-Welcome to the envoy developer guide.
+Welcome to the Envoy developer guide.
 This document will teach you how to build Android apps using
 APIs in the Android framework and other libraries.
 
@@ -58,23 +58,23 @@ This tool is derived from [Cronet](https://chromium.googlesource.com/chromium/sr
 
 [Cronet](https://chromium.googlesource.com/chromium/src/+/master/components/cronet/) is the networking stack of Chromium put into a library for use on mobile. This is the same networking stack that is used in chrome browser by over a billion user.
 
-So it will work with all request type which is mostly used in development.
-It is used to make app which is resistant to **censorship**
+So it will work with all request types which are mostly used in development.
+It is used to make apps which are resistant to **censorship**.
 
 ## What is Envoy And Where It can be used
 
-As name suggest envoy is a **representative** or **messenger**
+As the name suggests, Envoy is a **representative** or **messenger**.
 
-Like it our tool will work as messenger or representative for certain website or web content access without worrying of censorship as our tool will work as representative.
+Like it, our tool will work as a messenger or representative for certain websites or web content access without worrying about censorship, as our tool will work as the representative.
 
-As earlier said it can be used to make app resistant to **censorship**.
+As earlier said, it can be used to make an app resistant to **censorship**.
 
-Also it can be used as proxy tool communication for secure web access to your app.
-E.g. if facebook and YouTube is not accessible to country like china and you want to make app which shows facebook content or YouTube content then you can use this tool to show your content.
+Also, it can be used as a proxy tool communication for secure web access to your app.
+E.g. if Facebook and YouTube are not accessible in countries like China, and you want to make an app which shows Facebook or YouTube content, then you can use this tool to show your content.
 
-It can be used as partial content showing or can be used to make whole server communication with this tool depending upon your requirement.
+It can be used for showing partial content, or it can be used to make all server communications depending upon your requirements.
 
-Also if you don't want to use envoy proxy then also you can use this tool to get benefit of cronet library hassle-free. And in future if you want then you just have to simply define envoy url to bypass censorship.
+Also, if you don't want to use Envoy proxy then you can still use this tool to get the benefits of the cronet library hassle-free. And in the future, if you want, then you simply define an Envoy url to bypass censorship.
 
 ## App examples
 
@@ -95,7 +95,7 @@ You can submit more apps with `git -c diff.noprefix=false format-patch --numbere
 ## Release steps
 
 1. Rebuild cronet-debug.aar and cronet-release.aar: run `./native/build_cronet.sh debug` and `./native/build_cronet.sh release`
-2. Rebuild envoy: `./android/build-envoy.sh`
+2. Rebuild Envoy: `./android/build-envoy.sh`
 3. Rebuild demo apps: `./apps/build-apps.sh`
 
 Building everything from source requires around 100GB of disk space and time. The whole release process is also scripted in the [_.gitlab-ci.yml_](.gitlab-ci.yml). This can also be run using [Vagrant](https://www.vagrantup.com/) by running `vagrant up --provision --no-destroy-on-error`.
