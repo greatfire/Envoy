@@ -10,6 +10,7 @@ import org.chromium.net.UrlRequest
 import java.io.File
 import java.io.IOException
 import java.lang.reflect.Field
+import java.net.URI
 import java.net.URL
 import java.util.*
 import java.util.concurrent.ExecutorService
@@ -24,8 +25,43 @@ object CronetNetworking {
     private var mCronetEngine: CronetEngine? = null
     private val mExecutorService = Executors.newSingleThreadExecutor()
     private var mCustomCronetBuilder: CustomCronetBuilder? = null
+    private var envoyUrl: String? = null
 
     private const val TAG = "Envoy"
+
+    fun buildEngine(
+            context: Context,
+            cacheFolder: String? = null,
+            envoyUrl: String? = null,
+            strategy: Int = 0,
+            cacheSize: Long = 0
+    ): CronetEngine {
+        var builder = CronetEngine.Builder(context)
+                .enableBrotli(true)
+                .enableHttp2(true)
+                .enableQuic(true)
+        if (!cacheFolder.isNullOrEmpty() && cacheSize > 0) {
+            val cacheDir = File(context.cacheDir, cacheFolder)
+            if (!cacheDir.exists()) {
+                cacheDir.mkdirs()
+            }
+            builder = builder
+                    .setStoragePath(cacheDir.absolutePath)
+                    .enableHttpCache(CronetEngine.Builder.HTTP_CACHE_DISK, cacheSize * 1024 * 1024)
+        }
+        if (!envoyUrl.isNullOrEmpty()) {
+            Log.d(TAG, "building cronet engine with url $envoyUrl")
+            this.envoyUrl = envoyUrl
+            // TODO: is the envoy url used for something besides headers or can we remove it entirely?
+            builder = builder.setEnvoyUrl(envoyUrl)
+        } else {
+            Log.d(TAG, "building cronet engine with no url")
+        }
+        if (strategy > 0) {
+            builder = builder.SetStrategy(strategy)
+        }
+        return builder.build()
+    }
 
     @JvmStatic
     fun cronetEngine(): CronetEngine? {
@@ -49,17 +85,13 @@ object CronetNetworking {
         if (mCustomCronetBuilder != null) {
             mCronetEngine = mCustomCronetBuilder!!.build(context)
         } else {
-            val cacheDir = File(context.cacheDir, "cronet-cache")
-            cacheDir.mkdirs()
-            mCronetEngine = CronetEngine.Builder(context)
-                    .enableBrotli(true)
-                    .enableHttp2(true)
-                    .enableQuic(true)
-                    .setEnvoyUrl(envoyUrl)
-                    .SetStrategy(strategy)
-                    .setStoragePath(cacheDir.absolutePath)
-                    .enableHttpCache(CronetEngine.Builder.HTTP_CACHE_DISK, 10 * 1024 * 1024) // 10 MegaBytes
-                    .build()
+            mCronetEngine = buildEngine(
+                    context = context,
+                    cacheFolder = "cronet-cache",
+                    envoyUrl = envoyUrl,
+                    strategy = strategy,
+                    cacheSize = 10
+            )
             if (mCronetEngine != null) {
                 Log.d(TAG, "engine version " + mCronetEngine!!.versionString)
                 val factory = mCronetEngine!!.createURLStreamHandlerFactory()
@@ -90,14 +122,37 @@ object CronetNetworking {
     @JvmStatic
     @Throws(IOException::class)
     fun buildRequest(request: Request, callback: UrlRequest.Callback?, cronetEngine: CronetEngine, executorService: ExecutorService): UrlRequest {
+        val localUrl = envoyUrl
         val url = request.url.toString()
         val requestBuilder = cronetEngine.newUrlRequestBuilder(url, callback, executorService)
         requestBuilder.setHttpMethod(request.method)
+        // TODO: is this redundant?
         request.headers.forEach {
             if (it.first.toLowerCase(Locale.ENGLISH) != "accept-encoding") {
                 // Log.d(TAG, "add header for url $url: ${it.first}, ${it.second}")
                 requestBuilder.addHeader(it.first, it.second)
             }
+        }
+
+        // add more headers based on envoy url parameters
+        if (!localUrl.isNullOrEmpty() && (localUrl.startsWith("http") && localUrl.startsWith("envoy"))) {
+            Log.e(TAG, "parse additional headers from envoy url")
+            val headerPrefix = "header_"
+            val headerPrefixLength = headerPrefix.length
+            val uri: URI = URI(localUrl)
+            val rawQuery = uri.rawQuery
+            val queries = rawQuery.split("&")
+            for (i in 0 until queries.size) {
+                val queryParts = queries[i].split("=")
+                if (queryParts[0].startsWith(headerPrefix) && queryParts[0].length > headerPrefixLength) {
+                    requestBuilder.addHeader(queryParts[0].substring(headerPrefixLength), queryParts[1])
+                }
+            }
+
+            requestBuilder.addHeader("Url-Orig", request.url.toString())
+            requestBuilder.addHeader("Host-Orig", request.url.host)
+        } else {
+            Log.e(TAG, "no envoy url to parse additional headers from")
         }
 
         val requestBody = request.body
@@ -124,6 +179,11 @@ object CronetNetworking {
     @JvmStatic
     @Throws(IOException::class)
     fun buildRequest(request: Request, callback: UrlRequest.Callback?): UrlRequest {
+        if (mCronetEngine == null) {
+            Log.d(CronetNetworking.TAG, "build request with no cronet engine (exception?)")
+        } else {
+            Log.d(CronetNetworking.TAG, "build request with cronet engine")
+        }
         return buildRequest(request, callback, mCronetEngine!!, mExecutorService)
     }
 

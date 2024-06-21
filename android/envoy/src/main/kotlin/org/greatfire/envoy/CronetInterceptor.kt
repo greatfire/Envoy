@@ -5,7 +5,6 @@ import okhttp3.*
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.chromium.net.CronetEngine
 import java.io.IOException
-import java.net.SocketException
 import java.net.SocketTimeoutException
 
 class CronetInterceptor(private var mCronetEngine: CronetEngine?) : Interceptor {
@@ -76,6 +75,7 @@ class CronetInterceptor(private var mCronetEngine: CronetEngine?) : Interceptor 
     @Throws(IOException::class)
     private fun proxyToCronet(request: Request, call: Call): Response {
         // eventListener=eventListener, responseCallback=responseCallback
+        Log.d(CronetInterceptor.TAG, "proxy to cronet with no cronet engine")
         val callback = CronetUrlRequestCallback(request, call)
         val urlRequest = CronetNetworking.buildRequest(request, callback)
         urlRequest.start()
@@ -84,6 +84,7 @@ class CronetInterceptor(private var mCronetEngine: CronetEngine?) : Interceptor 
 
     @Throws(IOException::class)
     private fun proxyToCronet(request: Request, call: Call, cronetEngine: CronetEngine): Response {
+        Log.d(CronetInterceptor.TAG, "proxy to cronet with cronet engine")
         val callback = CronetUrlRequestCallback(request, call)
         val urlRequest = CronetNetworking.buildRequest(request, callback, cronetEngine)
         urlRequest.start()

@@ -1,5 +1,6 @@
 package org.greatfire.envoy
 
+import android.util.Log
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.EventListener
@@ -43,6 +44,7 @@ internal class CronetOkHttpCall(
             mIsExecuted = true
         }
         mEventListener.callStart(this)
+        Log.d("CronetOkHttpCall", "execute request with no cronet engine")
         val callback = CronetUrlRequestCallback(originalRequest, this, mEventListener, null)
         mUrlRequest = buildRequest(originalRequest, callback)
         mUrlRequest!!.start()
@@ -56,6 +58,7 @@ internal class CronetOkHttpCall(
         }
         mEventListener.callStart(this)
         try {
+            Log.d("CronetOkHttpCall", "enqueue request with no cronet engine")
             val callback = CronetUrlRequestCallback(originalRequest, this, mEventListener, responseCallback)
             mUrlRequest = buildRequest(originalRequest, callback)
             mUrlRequest!!.start()

@@ -2,15 +2,12 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
-    compileSdkVersion 33
-    buildToolsVersion '30.0.2'
     ndkVersion '21.0.6113669'
 
     defaultConfig {
+        compileSdk 34
         minSdkVersion 21
-        targetSdkVersion 33
-        versionCode 1
-        versionName '1.0'
+        targetSdkVersion 34
 
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
         consumerProguardFiles 'consumer-rules.pro'
@@ -24,7 +21,10 @@ android {
     }
 
     sourceSets {
-        main.java.srcDirs = ['src/main/kotlin', 'src/test/kotlin']
+        main {
+            java.srcDirs = ['src/main/kotlin',]
+            jniLibs.srcDirs = ['../cronet']
+        }
     }
     compileOptions {
         sourceCompatibility = 1.8
@@ -33,6 +33,10 @@ android {
     kotlinOptions {
         jvmTarget = JavaVersion.VERSION_1_8.toString()
     }
+    namespace 'org.greatfire.envoy'
+    buildFeatures {
+        buildConfig true
+    }
 }
 
 dependencies {
@@ -40,13 +44,13 @@ dependencies {
     //androidTestImplementation 'androidx.test:runner:1.1.1'
     //androidTestImplementation 'androidx.test.espresso:espresso-core:3.1.1'
 
-    implementation('com.squareup.okhttp3:okhttp:4.6.0')
-    implementation('com.squareup.okhttp3:okhttp-urlconnection:4.4.1')
+    implementation 'com.squareup.okhttp3:okhttp:4.11.0'
+    implementation 'com.squareup.okhttp3:okhttp-urlconnection:4.4.1'
 
-    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.4.32'
-    implementation 'androidx.core:core-ktx:1.3.2'
-    implementation 'androidx.preference:preference-ktx:1.1.1'
-    implementation 'androidx.localbroadcastmanager:localbroadcastmanager:1.0.0'
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib:1.8.0'
+    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.preference:preference-ktx:1.2.1'
+    implementation 'androidx.localbroadcastmanager:localbroadcastmanager:1.1.0'
     implementation 'org.greatfire.envoy:cronet:107.0.5304.150-1'
     implementation 'org.greatfire:IEnvoyProxy:1.5.0'
 
@@ -64,78 +68,80 @@ exec {
 version = stdout.toString().trim()
 group = 'org.greatfire'
 
-task sourcesZip {
-  def src = 'https://github.com/greatfire/envoy/archive/refs/tags/' + project.version + '.zip'
-  def destdir = project.getBuildDir().toString() + "/outputs/aar"
-  def destfile = "$destdir/envoy-" + project.version + "-sources.zip"
-  doLast {
-    def url = new URL(src)
-    def f = new File(destfile)
-    if (f.exists()) {
-      println "file $destfile already exists, skipping download"
-    } else {
-      mkdir "$destdir"
-      println "Downloading $destfile from $url..."
-      url.withInputStream { i -> f.withOutputStream { it << i } }
+tasks.register('sourcesZip') {
+    def src = 'https://github.com/greatfire/envoy/archive/refs/tags/' + project.version + '.zip'
+    def destdir = project.getBuildDir().toString() + "/outputs/aar"
+    def destfile = "$destdir/envoy-" + project.version + "-sources.zip"
+    doLast {
+        def url = new URL(src)
+        def f = new File(destfile)
+        if (f.exists()) {
+            println "file $destfile already exists, skipping download"
+        } else {
+            mkdir "$destdir"
+            println "Downloading $destfile from $url..."
+            url.withInputStream { i -> f.withOutputStream { it << i } }
+        }
     }
-  }
 }
 
-apply plugin: 'maven'
+apply plugin: 'maven-publish'
 
-task writeNewPom {
-    pom {
-        project {
-            name 'Envoy'
-            packaging 'aar'
-            artifactId 'envoy'
-            inceptionYear '2018'
-            url 'https://github.com/greatfire/envoy'
-            description 'C and Java Library derived from Chromium cronet'
-            licenses {
-                license {
-                    name 'The Apache Software License, Version 2.0'
-                    url 'https://github.com/greatfire/envoy/blob/master/LICENSE'
-                    distribution 'repo'
-                }
-                license {
-                    name 'BSD-3-clause'
-                    url 'https://chromium.googlesource.com/chromium/src/+/refs/heads/main/LICENSE'
-                    distribution 'repo'
-                }
-            }
-            developers {
-                developer {
-                    id = 'greatfire'
-                    name = 'GreatFire'
-                    email = 'support@greatfire.org'
-                }
-                developer {
-                    id = 'guardianproject'
-                    name = 'Guardian Project'
-                    email = 'support@guardianproject.info'
-                }
-            }
-            issueManagement {
-                url = "https://github.com/greatfire/envoy/issues"
-                system = "GitHub"
-            }
-            scm {
-                connection = 'scm:git:https://github.com/greatfire/envoy.git'
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            pom {
+                name = 'Envoy'
+                packaging = 'aar'
+                artifactId = 'envoy'
+                inceptionYear = '2018'
                 url = 'https://github.com/greatfire/envoy'
-            }
-            dependencies {
-                dependency {
-                    groupId = 'org.greatfire.envoy'
-                    artifactId = 'cronet'
-                    version = '108.0.5359.195'
+                description = 'C and Java Library derived from Chromium cronet'
+                licenses {
+                    license {
+                        name = 'The Apache Software License, Version 2.0'
+                        url = 'https://github.com/greatfire/envoy/blob/master/LICENSE'
+                        distribution = 'repo'
+                    }
+                    license {
+                        name = 'BSD-3-clause'
+                        url = 'https://chromium.googlesource.com/chromium/src/+/refs/heads/main/LICENSE'
+                        distribution = 'repo'
+                    }
                 }
-                dependency {
-                    groupId = 'org.greatfire'
-                    artifactId = 'IEnvoyProxy'
-                    version = '1.5.0'
+                developers {
+                    developer {
+                        id = 'greatfire'
+                        name = 'GreatFire'
+                        email = 'support@greatfire.org'
+                    }
+                    developer {
+                        id = 'guardianproject'
+                        name = 'Guardian Project'
+                        email = 'support@guardianproject.info'
+                    }
                 }
+                issueManagement {
+                    url = "https://github.com/greatfire/envoy/issues"
+                    system = "GitHub"
+                }
+                scm {
+                    connection = 'scm:git:https://github.com/greatfire/envoy.git'
+                    url = 'https://github.com/greatfire/envoy'
+                }
+//                dependencies {
+//                    dependency {
+//                        groupId = 'org.greatfire.envoy'
+//                        artifactId = 'cronet'
+//                        version = '108.0.5359.195'
+//                    }
+//                    dependency {
+//                        groupId = 'org.greatfire'
+//                        artifactId = 'IEnvoyProxy'
+//                        version = '1.5.0'
+//                    }
+//                }
             }
         }
-    }.writeTo(project.getBuildDir().toString() + "/outputs/aar/" + "envoy" + "-" + project.version + ".pom")
+    }
 }
