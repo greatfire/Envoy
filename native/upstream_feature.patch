@@ -1,0 +1,449 @@
+ components/cronet/android/api.txt                                                     |  2 ++
+ components/cronet/android/api/src/org/chromium/net/ICronetEngineBuilder.java          |  2 ++
+ components/cronet/android/api_version.txt                                             |  2 +-
+ components/cronet/android/cronet_context_adapter.cc                                   |  3 +++
+ components/cronet/android/java/src/org/chromium/net/impl/CronetEngineBuilderImpl.java | 13 +++++++++++++
+ components/cronet/android/java/src/org/chromium/net/impl/CronetUrlRequestContext.java |  7 +++++++
+ components/cronet/android/proto/request_context_config.proto                          |  1 +
+ components/cronet/native/cronet.idl                                                   |  5 +++++
+ components/cronet/native/engine.cc                                                    |  2 ++
+ components/cronet/native/generated/cronet.idl_c.h                                     |  6 ++++++
+ components/cronet/native/generated/cronet.idl_impl_struct.cc                          | 12 ++++++++++++
+ components/cronet/native/generated/cronet.idl_impl_struct.h                           |  1 +
+ components/cronet/native/sample/main.cc                                               |  4 ++++
+ components/cronet/url_request_context_config.cc                                       | 10 ++++++++--
+ components/cronet/url_request_context_config.h                                        |  9 +++++++++
+ native_client                                                                         |  2 +-
+ net/url_request/url_request_context.h                                                 |  5 +++++
+ net/url_request/url_request_context_builder.cc                                        | 21 ++++++++++++++++++++-
+ net/url_request/url_request_context_builder.h                                         |  5 +++++
+ 19 files changed, 107 insertions(+), 5 deletions(-)
+
+diff --git a/components/cronet/android/api.txt b/components/cronet/android/api.txt
+index 4e19af0db3542..5eee917a327f1 100644
+--- a/components/cronet/android/api.txt
++++ b/components/cronet/android/api.txt
+@@ -90,6 +90,7 @@ public class org.chromium.net.CronetEngine$Builder {
+   public org.chromium.net.CronetEngine$Builder(org.chromium.net.ICronetEngineBuilder);
+   public java.lang.String getDefaultUserAgent();
+   public org.chromium.net.CronetEngine$Builder setUserAgent(java.lang.String);
++  public org.chromium.net.CronetEngine$Builder setResolverRules(java.lang.String);
+   public org.chromium.net.CronetEngine$Builder setStoragePath(java.lang.String);
+   public org.chromium.net.CronetEngine$Builder setLibraryLoader(org.chromium.net.CronetEngine$Builder$LibraryLoader);
+   public org.chromium.net.CronetEngine$Builder enableQuic(boolean);
+@@ -328,6 +329,7 @@ public abstract class org.chromium.net.ICronetEngineBuilder {
+   public abstract org.chromium.net.ICronetEngineBuilder setLibraryLoader(org.chromium.net.CronetEngine$Builder$LibraryLoader);
+   public abstract org.chromium.net.ICronetEngineBuilder setStoragePath(java.lang.String);
+   public abstract org.chromium.net.ICronetEngineBuilder setUserAgent(java.lang.String);
++  public abstract org.chromium.net.ICronetEngineBuilder setResolverRules(java.lang.String);
+   public abstract java.lang.String getDefaultUserAgent();
+   public abstract org.chromium.net.ExperimentalCronetEngine build();
+   protected java.util.Set<java.lang.Integer> getSupportedConfigOptions();
+diff --git a/components/cronet/android/api/src/org/chromium/net/ICronetEngineBuilder.java b/components/cronet/android/api/src/org/chromium/net/ICronetEngineBuilder.java
+index f340a87dc2ee1..7da703e283d4e 100644
+--- a/components/cronet/android/api/src/org/chromium/net/ICronetEngineBuilder.java
++++ b/components/cronet/android/api/src/org/chromium/net/ICronetEngineBuilder.java
+@@ -75,6 +75,8 @@ public abstract class ICronetEngineBuilder {
+ 
+     public abstract ICronetEngineBuilder setUserAgent(String userAgent);
+ 
++    public abstract ICronetEngineBuilder setResolverRules(String resolverRules);
++
+     public abstract String getDefaultUserAgent();
+ 
+     public abstract ExperimentalCronetEngine build();
+diff --git a/components/cronet/android/api_version.txt b/components/cronet/android/api_version.txt
+index f5c89552bd3e6..3ad5abd03aea8 100644
+--- a/components/cronet/android/api_version.txt
++++ b/components/cronet/android/api_version.txt
+@@ -1 +1 @@
+-32
++99
+diff --git a/components/cronet/android/cronet_context_adapter.cc b/components/cronet/android/cronet_context_adapter.cc
+index 8007d4d94c9f5..a36bac56d94b6 100644
+--- a/components/cronet/android/cronet_context_adapter.cc
++++ b/components/cronet/android/cronet_context_adapter.cc
+@@ -234,6 +234,8 @@ static jlong JNI_CronetUrlRequestContext_CreateRequestContextConfig(
+     return 0;
+   }
+ 
++  std::cerr << "[MNB][cca.cc] RESOLVER RULES: " << configOptions.resolver_rules() << std::endl;
++
+   std::unique_ptr<URLRequestContextConfig> url_request_context_config =
+       URLRequestContextConfig::CreateURLRequestContextConfig(
+           configOptions.quic_enabled(), configOptions.http2_enabled(),
+@@ -243,6 +245,7 @@ static jlong JNI_CronetUrlRequestContext_CreateRequestContextConfig(
+           configOptions.http_cache_max_size(), configOptions.disable_cache(),
+           configOptions.storage_path(),
+           /* accept_languages */ std::string(), configOptions.user_agent(),
++          configOptions.resolver_rules(),
+           configOptions.experimental_options(),
+           base::WrapUnique(reinterpret_cast<net::CertVerifier*>(
+               configOptions.mock_cert_verifier())),
+diff --git a/components/cronet/android/java/src/org/chromium/net/impl/CronetEngineBuilderImpl.java b/components/cronet/android/java/src/org/chromium/net/impl/CronetEngineBuilderImpl.java
+index 3e17f1c53c0e0..cee4a9f09da2b 100644
+--- a/components/cronet/android/java/src/org/chromium/net/impl/CronetEngineBuilderImpl.java
++++ b/components/cronet/android/java/src/org/chromium/net/impl/CronetEngineBuilderImpl.java
+@@ -142,6 +142,7 @@ public abstract class CronetEngineBuilderImpl extends ICronetEngineBuilder {
+     private final CronetSource mSource;
+     private boolean mPublicKeyPinningBypassForLocalTrustAnchorsEnabled;
+     private String mUserAgent;
++    private String mResolverRules;
+     private String mStoragePath;
+     private boolean mQuicEnabled;
+     private boolean mHttp2Enabled;
+@@ -232,6 +233,18 @@ public abstract class CronetEngineBuilderImpl extends ICronetEngineBuilder {
+         return mUserAgent;
+     }
+ 
++    @Override
++    public CronetEngineBuilderImpl setResolverRules(String resolverRules) {
++        mResolverRules = resolverRules;
++        System.err.println("[MNB][cebi.java] SET RESOLVER RULES: " + mResolverRules + "\n");
++        return this;
++    }
++
++    public String getResolverRules() {
++        System.err.println("[MNB][cebi.java] GET RESOLVER RULES: " + mResolverRules + "\n");
++        return mResolverRules;
++    }
++
+     @Override
+     public CronetEngineBuilderImpl setStoragePath(String value) {
+         if (!new File(value).isDirectory()) {
+diff --git a/components/cronet/android/java/src/org/chromium/net/impl/CronetUrlRequestContext.java b/components/cronet/android/java/src/org/chromium/net/impl/CronetUrlRequestContext.java
+index 770f55fa99d90..c3fa8fe1dbd2f 100644
+--- a/components/cronet/android/java/src/org/chromium/net/impl/CronetUrlRequestContext.java
++++ b/components/cronet/android/java/src/org/chromium/net/impl/CronetUrlRequestContext.java
+@@ -411,6 +411,13 @@ public class CronetUrlRequestContext extends CronetEngineBase {
+             resultBuilder.setExperimentalOptions(engineBuilder.experimentalOptions());
+         }
+ 
++        if (engineBuilder.getResolverRules() != null) {
++            System.err.println("[MNB][curc.java] CREATE, RESOLVER RULES: " + engineBuilder.getResolverRules() + "\n");
++            resultBuilder.setResolverRules(engineBuilder.getResolverRules());
++        } else {
++            System.err.println("[MNB][curc.java] CREATE, RESOLVER RULES: (null)\n");
++        }
++
+         return resultBuilder.build();
+     }
+ 
+diff --git a/components/cronet/android/proto/request_context_config.proto b/components/cronet/android/proto/request_context_config.proto
+index 348bd84d5e23e..1f7dee4ff6960 100644
+--- a/components/cronet/android/proto/request_context_config.proto
++++ b/components/cronet/android/proto/request_context_config.proto
+@@ -21,4 +21,5 @@ message RequestContextConfigOptions {
+   optional bool enable_network_quality_estimator = 12;
+   optional bool bypass_public_key_pinning_for_local_trust_anchors = 13;
+   optional int32 network_thread_priority = 14;
++  optional string resolver_rules = 98;
+ }
+diff --git a/components/cronet/native/cronet.idl b/components/cronet/native/cronet.idl
+index 8e83cb0cf70a4..f35e81c7c3b05 100644
+--- a/components/cronet/native/cronet.idl
++++ b/components/cronet/native/cronet.idl
+@@ -511,6 +511,11 @@ struct EngineParams {
+    */
+   string user_agent;
+ 
++  /**
++   * TODO: comment
++   */
++  string resolver_rules;
++
+   /**
+    * Sets a default value for the Accept-Language header value for UrlRequests
+    * created by this engine. Explicitly setting the Accept-Language header
+diff --git a/components/cronet/native/engine.cc b/components/cronet/native/engine.cc
+index c35c4dbfc33ec..34c5662b8149b 100644
+--- a/components/cronet/native/engine.cc
++++ b/components/cronet/native/engine.cc
+@@ -149,6 +149,8 @@ Cronet_RESULT Cronet_EngineImpl::StartWithParams(
+   context_config_builder.storage_path = params->storage_path;
+   context_config_builder.accept_language = params->accept_language;
+   context_config_builder.user_agent = params->user_agent;
++  std::cerr << "[MNB][c.idl] RESOLVER RULES: " << params->resolver_rules << std::endl;
++  context_config_builder.resolver_rules = params->resolver_rules;
+   context_config_builder.experimental_options = params->experimental_options;
+   context_config_builder.bypass_public_key_pinning_for_local_trust_anchors =
+       params->enable_public_key_pinning_bypass_for_local_trust_anchors;
+diff --git a/components/cronet/native/generated/cronet.idl_c.h b/components/cronet/native/generated/cronet.idl_c.h
+index 988e6efacb0f3..e9fa87cad26e2 100644
+--- a/components/cronet/native/generated/cronet.idl_c.h
++++ b/components/cronet/native/generated/cronet.idl_c.h
+@@ -795,6 +795,9 @@ CRONET_EXPORT
+ void Cronet_EngineParams_user_agent_set(Cronet_EngineParamsPtr self,
+                                         const Cronet_String user_agent);
+ CRONET_EXPORT
++void Cronet_EngineParams_resolver_rules_set(Cronet_EngineParamsPtr self,
++                                        const Cronet_String resolver_rules);
++CRONET_EXPORT
+ void Cronet_EngineParams_accept_language_set(
+     Cronet_EngineParamsPtr self,
+     const Cronet_String accept_language);
+@@ -845,6 +848,9 @@ CRONET_EXPORT
+ Cronet_String Cronet_EngineParams_user_agent_get(
+     const Cronet_EngineParamsPtr self);
+ CRONET_EXPORT
++Cronet_String Cronet_EngineParams_resolver_rules_get(
++    const Cronet_EngineParamsPtr self);
++CRONET_EXPORT
+ Cronet_String Cronet_EngineParams_accept_language_get(
+     const Cronet_EngineParamsPtr self);
+ CRONET_EXPORT
+diff --git a/components/cronet/native/generated/cronet.idl_impl_struct.cc b/components/cronet/native/generated/cronet.idl_impl_struct.cc
+index b9120ff8c24f6..5137932933da8 100644
+--- a/components/cronet/native/generated/cronet.idl_impl_struct.cc
++++ b/components/cronet/native/generated/cronet.idl_impl_struct.cc
+@@ -249,6 +249,12 @@ void Cronet_EngineParams_user_agent_set(Cronet_EngineParamsPtr self,
+   self->user_agent = user_agent;
+ }
+ 
++void Cronet_EngineParams_resolver_rules_set(Cronet_EngineParamsPtr self,
++                                        const Cronet_String resolver_rules) {
++  DCHECK(self);
++  self->resolver_rules = resolver_rules;
++}
++
+ void Cronet_EngineParams_accept_language_set(
+     Cronet_EngineParamsPtr self,
+     const Cronet_String accept_language) {
+@@ -342,6 +348,12 @@ Cronet_String Cronet_EngineParams_user_agent_get(
+   return self->user_agent.c_str();
+ }
+ 
++Cronet_String Cronet_EngineParams_resolver_rules_get(
++    const Cronet_EngineParamsPtr self) {
++  DCHECK(self);
++  return self->resolver_rules.c_str();
++}
++
+ Cronet_String Cronet_EngineParams_accept_language_get(
+     const Cronet_EngineParamsPtr self) {
+   DCHECK(self);
+diff --git a/components/cronet/native/generated/cronet.idl_impl_struct.h b/components/cronet/native/generated/cronet.idl_impl_struct.h
+index badb341ce331c..d9d75177ce252 100644
+--- a/components/cronet/native/generated/cronet.idl_impl_struct.h
++++ b/components/cronet/native/generated/cronet.idl_impl_struct.h
+@@ -82,6 +82,7 @@ struct Cronet_EngineParams {
+ 
+   bool enable_check_result = true;
+   std::string user_agent;
++  std::string resolver_rules;
+   std::string accept_language;
+   std::string storage_path;
+   bool enable_quic = true;
+diff --git a/components/cronet/native/sample/main.cc b/components/cronet/native/sample/main.cc
+index 0cbbdce569e14..450f8be60fdf3 100644
+--- a/components/cronet/native/sample/main.cc
++++ b/components/cronet/native/sample/main.cc
+@@ -12,6 +12,10 @@ Cronet_EnginePtr CreateCronetEngine() {
+   Cronet_EnginePtr cronet_engine = Cronet_Engine_Create();
+   Cronet_EngineParamsPtr engine_params = Cronet_EngineParams_Create();
+   Cronet_EngineParams_user_agent_set(engine_params, "CronetSample/1");
++
++  std::cerr << "[MNB][main.cc] SET RESOLVER RULES: " << "MAP * 208.80.154.224" << std::endl;
++  Cronet_EngineParams_resolver_rules_set(engine_params, "MAP * 208.80.154.224");
++
+   Cronet_EngineParams_enable_quic_set(engine_params, true);
+ 
+   Cronet_Engine_StartWithParams(cronet_engine, engine_params);
+diff --git a/components/cronet/url_request_context_config.cc b/components/cronet/url_request_context_config.cc
+index 5ef2058149f28..8cffa8c432da9 100644
+--- a/components/cronet/url_request_context_config.cc
++++ b/components/cronet/url_request_context_config.cc
+@@ -265,6 +265,7 @@ URLRequestContextConfig::URLRequestContextConfig(
+     const std::string& storage_path,
+     const std::string& accept_language,
+     const std::string& user_agent,
++    const std::string& resolver_rules,
+     base::Value::Dict experimental_options,
+     std::unique_ptr<net::CertVerifier> mock_cert_verifier,
+     bool enable_network_quality_estimator,
+@@ -279,6 +280,7 @@ URLRequestContextConfig::URLRequestContextConfig(
+       storage_path(storage_path),
+       accept_language(accept_language),
+       user_agent(user_agent),
++      resolver_rules(resolver_rules),
+       mock_cert_verifier(std::move(mock_cert_verifier)),
+       enable_network_quality_estimator(enable_network_quality_estimator),
+       bypass_public_key_pinning_for_local_trust_anchors(
+@@ -305,6 +307,7 @@ URLRequestContextConfig::CreateURLRequestContextConfig(
+     const std::string& storage_path,
+     const std::string& accept_language,
+     const std::string& user_agent,
++    const std::string& resolver_rules,
+     const std::string& unparsed_experimental_options,
+     std::unique_ptr<net::CertVerifier> mock_cert_verifier,
+     bool enable_network_quality_estimator,
+@@ -322,7 +325,7 @@ URLRequestContextConfig::CreateURLRequestContextConfig(
+   }
+   return base::WrapUnique(new URLRequestContextConfig(
+       enable_quic, enable_spdy, enable_brotli, http_cache, http_cache_max_size,
+-      load_disable_cache, storage_path, accept_language, user_agent,
++      load_disable_cache, storage_path, accept_language, user_agent, resolver_rules,
+       std::move(experimental_options).value(), std::move(mock_cert_verifier),
+       enable_network_quality_estimator,
+       bypass_public_key_pinning_for_local_trust_anchors,
+@@ -800,6 +803,8 @@ void URLRequestContextConfig::ConfigureURLRequestContextBuilder(
+   }
+   context_builder->set_accept_language(accept_language);
+   context_builder->set_user_agent(user_agent);
++  std::cerr << "[MNB][urcc.cc] BUILDER RESOLVER RULES: " << resolver_rules << std::endl;
++  context_builder->set_resolver_rules(resolver_rules);
+   net::HttpNetworkSessionParams session_params;
+   session_params.enable_http2 = enable_spdy;
+   session_params.enable_quic = enable_quic;
+@@ -827,9 +832,10 @@ URLRequestContextConfigBuilder::~URLRequestContextConfigBuilder() {}
+ 
+ std::unique_ptr<URLRequestContextConfig>
+ URLRequestContextConfigBuilder::Build() {
++  std::cerr << "[MNB][urcc.cc] BUILD RESOLVER RULES: " << resolver_rules << std::endl;
+   return URLRequestContextConfig::CreateURLRequestContextConfig(
+       enable_quic, enable_spdy, enable_brotli, http_cache, http_cache_max_size,
+-      load_disable_cache, storage_path, accept_language, user_agent,
++      load_disable_cache, storage_path, accept_language, user_agent, resolver_rules,
+       experimental_options, std::move(mock_cert_verifier),
+       enable_network_quality_estimator,
+       bypass_public_key_pinning_for_local_trust_anchors,
+diff --git a/components/cronet/url_request_context_config.h b/components/cronet/url_request_context_config.h
+index 3ce700f953184..c2b71f1856526 100644
+--- a/components/cronet/url_request_context_config.h
++++ b/components/cronet/url_request_context_config.h
+@@ -127,6 +127,9 @@ struct URLRequestContextConfig {
+   // User-Agent request header field.
+   const std::string user_agent;
+ 
++  // TODO - comment
++  const std::string resolver_rules;
++
+   // Certificate verifier for testing.
+   std::unique_ptr<net::CertVerifier> mock_cert_verifier;
+ 
+@@ -199,6 +202,8 @@ struct URLRequestContextConfig {
+       const std::string& accept_language,
+       // User-Agent request header field.
+       const std::string& user_agent,
++      // TODO: comment
++      const std::string& resolver_rules,
+       // JSON encoded experimental options.
+       const std::string& unparsed_experimental_options,
+       // MockCertVerifier to use for testing purposes.
+@@ -233,6 +238,8 @@ struct URLRequestContextConfig {
+       const std::string& accept_language,
+       // User-Agent request header field.
+       const std::string& user_agent,
++      // TODO: comment
++      const std::string& resolver_rules,
+       // Parsed experimental options.
+       base::Value::Dict experimental_options,
+       // MockCertVerifier to use for testing purposes.
+@@ -301,6 +308,8 @@ struct URLRequestContextConfigBuilder {
+   std::string accept_language = "";
+   // User-Agent request header field.
+   std::string user_agent = "";
++  // TODO: comment
++  std::string resolver_rules = "";
+   // Experimental options encoded as a string in a JSON format containing
+   // experiments and their corresponding configuration options. The format
+   // is a JSON object with the name of the experiment as the key, and the
+diff --git a/native_client b/native_client
+index 416908382260d..7d275eb5878e2 160000
+--- a/native_client
++++ b/native_client
+@@ -1 +1 @@
+-Subproject commit 416908382260d3ed2c78f91a780d73957f6a8dca
++Subproject commit 7d275eb5878e29cf3d7338617c1e0c5e5856195a
+diff --git a/net/url_request/url_request_context.h b/net/url_request/url_request_context.h
+index 957d2ee53d911..f7f1583ab38ea 100644
+--- a/net/url_request/url_request_context.h
++++ b/net/url_request/url_request_context.h
+@@ -233,6 +233,9 @@ class NET_EXPORT URLRequestContext final {
+   // context has been bound to.
+   handles::NetworkHandle bound_network() const { return bound_network_; }
+ 
++  void set_resolver_rules(const std::string& resolver_rules) { resolver_rules_ = resolver_rules; }
++  const std::string& resolver_rules() const { return resolver_rules_; }
++
+   void AssertCalledOnValidThread() {
+     DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
+   }
+@@ -379,6 +382,8 @@ class NET_EXPORT URLRequestContext final {
+   // provided to a request when true.
+   bool require_network_anonymization_key_ = false;
+ 
++  std::string resolver_rules_;
++
+   std::optional<std::string> cookie_deprecation_label_;
+ 
+   handles::NetworkHandle bound_network_;
+diff --git a/net/url_request/url_request_context_builder.cc b/net/url_request/url_request_context_builder.cc
+index 1649b10001b32..7e07b34d43583 100644
+--- a/net/url_request/url_request_context_builder.cc
++++ b/net/url_request/url_request_context_builder.cc
+@@ -31,6 +31,7 @@
+ #include "net/dns/context_host_resolver.h"
+ #include "net/dns/host_resolver.h"
+ #include "net/dns/host_resolver_manager.h"
++#include "net/dns/mapped_host_resolver.h"
+ #include "net/http/http_auth_handler_factory.h"
+ #include "net/http/http_cache.h"
+ #include "net/http/http_network_layer.h"
+@@ -127,6 +128,12 @@ void URLRequestContextBuilder::set_user_agent(const std::string& user_agent) {
+   user_agent_ = user_agent;
+ }
+ 
++void URLRequestContextBuilder::set_resolver_rules(const std::string& resolver_rules) {
++  // DCHECK(!http_user_agent_settings_); ???
++  resolver_rules_ = resolver_rules;
++  std::cerr << "[MNB][urcb.cc] SET RESOLVER RULES: " << resolver_rules_ << std::endl;
++}
++
+ void URLRequestContextBuilder::set_http_user_agent_settings(
+     std::unique_ptr<HttpUserAgentSettings> http_user_agent_settings) {
+   http_user_agent_settings_ = std::move(http_user_agent_settings);
+@@ -371,7 +378,19 @@ std::unique_ptr<URLRequestContext> URLRequestContextBuilder::Build() {
+     }
+   }
+   host_resolver_->SetRequestContext(context.get());
+-  context->set_host_resolver(std::move(host_resolver_));
++  //context->set_host_resolver(std::move(host_resolver_));
++
++  // TEMP: main dns feature code is here
++  if (resolver_rules_.empty()) {
++    std::cerr << "[MNB][urcb.cc] BUILD RESOLVER RULES: (empty)" << std::endl;
++    context->set_host_resolver(std::move(host_resolver_));
++  } else {
++    std::cerr << "[MNB][urcb.cc] BUILD RESOLVER RULES: " << resolver_rules_ << std::endl;
++    std::unique_ptr<net::MappedHostResolver> remapped_resolver(
++        new net::MappedHostResolver(std::move(host_resolver_)));
++    remapped_resolver->SetRulesFromString(resolver_rules_);
++    context->set_host_resolver(std::move(remapped_resolver));
++  }
+ 
+   if (ssl_config_service_) {
+     context->set_ssl_config_service(std::move(ssl_config_service_));
+diff --git a/net/url_request/url_request_context_builder.h b/net/url_request/url_request_context_builder.h
+index a15febef3b07a..41d5ed35bfd3c 100644
+--- a/net/url_request/url_request_context_builder.h
++++ b/net/url_request/url_request_context_builder.h
+@@ -196,6 +196,9 @@ class NET_EXPORT URLRequestContextBuilder {
+   void set_accept_language(const std::string& accept_language);
+   void set_user_agent(const std::string& user_agent);
+ 
++  // TODO: comments
++  void set_resolver_rules(const std::string& envoy_url);
++
+   // Makes the created URLRequestContext use a particular HttpUserAgentSettings
+   // object. Not compatible with set_accept_language() / set_user_agent().
+   //
+@@ -417,6 +420,8 @@ class NET_EXPORT URLRequestContextBuilder {
+ 
+   std::string accept_language_;
+   std::string user_agent_;
++  std::string resolver_rules_;
++
+   std::unique_ptr<HttpUserAgentSettings> http_user_agent_settings_;
+ 
+   std::optional<std::string> cookie_deprecation_label_;
