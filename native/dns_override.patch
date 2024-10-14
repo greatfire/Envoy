@@ -16,11 +16,10 @@
  components/cronet/native/sample/main.cc                                                          |  1 +
  components/cronet/url_request_context_config.cc                                                  |  8 ++++++--
  components/cronet/url_request_context_config.h                                                   |  9 +++++++++
- native_client                                                                                    |  2 +-
  net/url_request/url_request_context.h                                                            |  5 +++++
  net/url_request/url_request_context_builder.cc                                                   | 17 ++++++++++++++++-
  net/url_request/url_request_context_builder.h                                                    |  7 +++++++
- 22 files changed, 110 insertions(+), 5 deletions(-)
+ 21 files changed, 109 insertions(+), 4 deletions(-)
 
 diff --git a/components/cronet/android/api.txt b/components/cronet/android/api.txt
 index 4e19af0db3542..5eee917a327f1 100644
@@ -76,12 +75,12 @@ index f340a87dc2ee1..7da703e283d4e 100644
  
      public abstract ExperimentalCronetEngine build();
 diff --git a/components/cronet/android/api_version.txt b/components/cronet/android/api_version.txt
-index f5c89552bd3e6..3ad5abd03aea8 100644
+index f5c89552bd3e6..bb95160cb6e07 100644
 --- a/components/cronet/android/api_version.txt
 +++ b/components/cronet/android/api_version.txt
 @@ -1 +1 @@
 -32
-+99
++33
 diff --git a/components/cronet/android/cronet_context_adapter.cc b/components/cronet/android/cronet_context_adapter.cc
 index 8007d4d94c9f5..79363f3db6025 100644
 --- a/components/cronet/android/cronet_context_adapter.cc
@@ -387,13 +386,6 @@ index 3ce700f953184..912614374ea6d 100644
    // Experimental options encoded as a string in a JSON format containing
    // experiments and their corresponding configuration options. The format
    // is a JSON object with the name of the experiment as the key, and the
-diff --git a/native_client b/native_client
-index 416908382260d..7d275eb5878e2 160000
---- a/native_client
-+++ b/native_client
-@@ -1 +1 @@
--Subproject commit 416908382260d3ed2c78f91a780d73957f6a8dca
-+Subproject commit 7d275eb5878e29cf3d7338617c1e0c5e5856195a
 diff --git a/net/url_request/url_request_context.h b/net/url_request/url_request_context.h
 index 957d2ee53d911..f7f1583ab38ea 100644
 --- a/net/url_request/url_request_context.h
