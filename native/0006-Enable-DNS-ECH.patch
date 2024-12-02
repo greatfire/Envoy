@@ -1,0 +1,75 @@
+ components/cronet/url_request_context_config.cc | 54 +++++++++++++++++++++++++
+ 1 file changed, 54 insertions(+)
+
+diff --git a/components/cronet/url_request_context_config.cc b/components/cronet/url_request_context_config.cc
+index 77da6d598eb48..59bccd1342201 100644
+--- a/components/cronet/url_request_context_config.cc
++++ b/components/cronet/url_request_context_config.cc
+@@ -28,6 +28,7 @@
+ #include "net/dns/context_host_resolver.h"
+ #include "net/dns/host_resolver.h"
+ #include "net/dns/mapped_host_resolver.h"
++#include "net/dns/public/dns_protocol.h"
+ #include "net/http/http_network_session.h"
+ #include "net/http/http_server_properties.h"
+ #include "net/log/net_log.h"
+@@ -854,6 +855,59 @@ void URLRequestContextConfig::ConfigureURLRequestContextBuilder(
+   SetContextBuilderExperimentalOptions(context_builder, &session_params,
+                                        quic_context->params(), bound_network);
+ 
++
++  // ENVOY
++
++  net::DnsConfigOverrides overrides = net::DnsConfigOverrides::CreateOverridingEverythingWithDefaults();
++
++  // force secure DNS
++  overrides.secure_dns_mode = net::SecureDnsMode::kSecure;
++
++  // set DNS.sb, Quad9, Cloudflare, and NextDNS as DoH servers
++  overrides.dns_over_https_config = net::DnsOverHttpsConfig::FromString(R"(
++    {
++      "servers": [{
++        "template": "https://doh.dns.sb/dns-query",
++        "endpoints": [{
++          "ips": ["45.11.45.11"]
++        }, {
++          "ips": ["185.222.222.222"]
++        }]
++      },{
++        "template": "https://dns.quad9.net/dns-query",
++        "endpoints": [{
++          "ips": ["9.9.9.9", "2620:fe::fe"]
++        }, {
++          "ips": ["149.112.112.112", "2620:fe::9"]
++        }]
++      },{
++        "template": "https://chrome.cloudflare-dns.com/dns-query",
++        "endpoints": [{
++          "ips": ["1.1.1.1", "2606:4700:4700::1111"]
++        }, {
++          "ips": ["1.0.0.1", "2606:4700:4700::1001"]
++        }]
++      },{
++        "template": "https://chromium.dns.nextdns.io",
++        "endpoints": [{
++          "ips": ["209.209.57.165", "2001:19f0:ac01:170:5400:2ff:fec8:72c8"]
++        },{
++          "ips": ["104.238.181.28", "2a0e:6901:410:25:5054:ff:fe1c:7c81"]
++        }]
++      }]
++    }
++  )");
++
++  net::HostResolver::ManagerOptions host_resolver_manager_options;
++  host_resolver_manager_options.dns_config_overrides = overrides;
++  std::unique_ptr<net::HostResolver> host_resolver;
++  host_resolver = net::HostResolver::CreateStandaloneResolver(
++            net::NetLog::Get(), std::move(host_resolver_manager_options));
++
++  context_builder->set_host_resolver(std::move(host_resolver));
++
++  // END ENVOY
++
+   context_builder->set_http_network_session_params(session_params);
+   context_builder->set_quic_context(std::move(quic_context));
+ 
